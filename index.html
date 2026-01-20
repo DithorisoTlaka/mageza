@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeoRide - Futuristic Taxi App</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Orbitron', sans-serif; /* Load from Google Fonts */
+            background: linear-gradient(to bottom, #0A0A1E, #1E1E3C);
+            color: #FFFFFF;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            border: 1px solid #00FFFF;
+            border-radius: 15px;
+            box-shadow: 0 0 20px #00FFFF;
+            animation: glow 2s infinite alternate;
+        }
+        @keyframes glow {
+            from { box-shadow: 0 0 10px #00FFFF; }
+            to { box-shadow: 0 0 30px #00FFFF; }
+        }
+        input {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #FF00FF;
+            color: #FFFFFF;
+            border-radius: 5px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        input:focus {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px #FF00FF;
+        }
+        button {
+            padding: 10px 20px;
+            background: #00FF00;
+            border: none;
+            color: #0A0A1E;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.3s;
+        }
+        button:hover {
+            background: #00FFFF;
+            transform: scale(1.1);
+        }
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="1" fill="white"/></svg>') repeat;
+            animation: particles-move 10s linear infinite;
+            opacity: 0.2;
+        }
+        @keyframes particles-move {
+            from { background-position: 0 0; }
+            to { background-position: 100px 100px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="particles"></div>
+    <div class="container">
+        <h1>NeoRide</h1>
+        <p>Request a ride from home</p>
+        <input type="text" placeholder="Pickup Location (e.g., Home)" id="pickup">
+        <input type="text" placeholder="Dropoff Location" id="dropoff">
+        <button onclick="requestRide()">Call Taxi</button>
+        <p id="status"></p>
+    </div>
+    <script>
+        function requestRide() {
+            const pickup = document.getElementById('pickup').value;
+            const dropoff = document.getElementById('dropoff').value;
+            if (pickup && dropoff) {
+                document.getElementById('status').innerText = `Ride requested from ${pickup} to ${dropoff}. ETA: 5 mins.`;
+                // Simulate animation: pulse the status
+                document.getElementById('status').style.animation = 'glow 1s infinite alternate';
+            } else {
+                alert('Enter locations!');
+            }
+        }
+    </script>
+</body>
+</html>
