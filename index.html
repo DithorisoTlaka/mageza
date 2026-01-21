@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Rounded" rel="stylesheet"/>
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -70,12 +69,11 @@
         width: 100%;
         height: auto;
         flex-direction: row;
-        justify-content: space-around;
+        justify-content: space-evenly;
         padding: 8px 0;
         background: var(--bg-surface);
         border-top: 1px solid rgba(255,255,255,0.12);
         box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
-        transform: none !important;
         z-index: 100;
       }
       .sidebar .brand-text,
@@ -86,35 +84,45 @@
         flex-direction: row;
         margin-top: 0;
         width: 100%;
-        justify-content: space-around;
+        justify-content: space-evenly;
         align-items: center;
+        padding: 0 8px;
       }
       .nav-item {
-        flex: 1;
+        flex: 1 1 auto;
         text-align: center;
-        padding: 8px 4px;
+        padding: 8px 6px;
         border-radius: 12px;
         transition: all 0.18s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-width: 60px;
         max-width: 80px;
       }
       .nav-item:hover,
       .nav-item:active {
-        transform: scale(1.12);
+        transform: scale(1.15);
         background: rgba(var(--accent-color), 0.15);
       }
       .nav-item.active {
-        background: rgba(var(--accent-color), 0.28);
+        background: rgba(var(--accent-color), 0.25);
         color: var(--accent-color);
       }
       .nav-icon {
-        font-size: 28px;
+        font-size: 32px;
+        margin-bottom: 2px;
       }
-      .mobile-menu-trigger { display: none !important; }
+      .nav-label {
+        font-size: 0.75rem;
+        margin-top: 2px;
+      }
       .main {
-        margin-bottom: 76px;
+        margin-bottom: 80px; /* increased slightly to prevent overlap */
       }
       .content-scroll {
-        padding-bottom: 90px;
+        padding-bottom: 100px;
       }
     }
     .nav-list { flex: 1; display: flex; flex-direction: column; gap: 4px; margin-top: 20px; }
@@ -198,9 +206,6 @@
     }
     .category-pill.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
 
-    /* ────────────────────────────────────────────────
-       FEATURED SECTION STYLES
-    ──────────────────────────────────────────────── */
     .featured-section {
       padding: 48px 24px 32px;
       background: linear-gradient(135deg, rgba(66,133,244,0.08), rgba(217,101,112,0.06));
@@ -563,10 +568,7 @@
         <p id="dashboardSubtitle" style="color:var(--text-secondary); margin-bottom:32px;">Track performance and reach of your listings</p>
 
         <div id="dashboardContent">
-          <!-- Stats cards -->
           <div class="stats-grid" id="statsGrid"></div>
-
-          <!-- Charts -->
           <div class="charts-row">
             <div class="chart-container">
               <canvas id="viewsChart"></canvas>
@@ -581,7 +583,6 @@
               <canvas id="performanceChart"></canvas>
             </div>
           </div>
-
           <div style="margin-top:40px; text-align:center; color:var(--text-muted);">
             <p>More detailed analytics (real-time updates, visitor maps, heatmaps) coming soon.</p>
           </div>
@@ -814,7 +815,7 @@
     });
 
     // ────────────────────────────────────────────────
-    // AUTH & DASHBOARD REDIRECT
+    // AUTH UI & DASHBOARD REDIRECT
     // ────────────────────────────────────────────────
     function updateAuthUI(user) {
       if (user) {
@@ -860,7 +861,6 @@
 
       els.dashboardSubtitle.textContent = `Welcome back, ${auth.currentUser.displayName?.split(' ')[0] || 'User'}`;
 
-      // Stats cards
       const placeholderStats = [
         { label: "Profile Views", value: "1,248", change: "+18%" },
         { label: "Phone Calls", value: "87", change: "+12%" },
@@ -889,10 +889,8 @@
       const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim();
 
-      // Destroy previous instances if they exist
       [viewsChart, callsChart, sourcesChart, performanceChart].forEach(chart => chart && chart.destroy());
 
-      // Line - Views over time
       viewsChart = new Chart(document.getElementById('viewsChart'), {
         type: 'line',
         data: {
@@ -917,7 +915,6 @@
         }
       });
 
-      // Bar - Calls & Inquiries
       callsChart = new Chart(document.getElementById('callsChart'), {
         type: 'bar',
         data: {
@@ -938,7 +935,6 @@
         }
       });
 
-      // Pie - Traffic Sources
       sourcesChart = new Chart(document.getElementById('sourcesChart'), {
         type: 'pie',
         data: {
@@ -957,7 +953,6 @@
         }
       });
 
-      // Radar - Performance Metrics
       performanceChart = new Chart(document.getElementById('performanceChart'), {
         type: 'radar',
         data: {
@@ -1031,7 +1026,7 @@
     }
 
     // ────────────────────────────────────────────────
-    // FEATURED & BUSINESS RENDERING (unchanged)
+    // FEATURED RENDERING
     // ────────────────────────────────────────────────
     function renderFeatured() {
       const featured = allBusinesses.filter(b => b.featured === true);
@@ -1052,6 +1047,9 @@
       });
     }
 
+    // ────────────────────────────────────────────────
+    // FILTER & RENDER FUNCTIONS
+    // ────────────────────────────────────────────────
     function filterBusinesses() {
       const q = els.search.value.toLowerCase();
       if (currentView === 'categories') {
@@ -1114,7 +1112,7 @@
     }
 
     // ────────────────────────────────────────────────
-    // MODALS & OTHER FUNCTIONS (unchanged)
+    // MODALS & OTHER FUNCTIONS
     // ────────────────────────────────────────────────
     function openDetailModal(biz) {
       currentActiveBizId = biz.id;
