@@ -169,6 +169,65 @@
       background: rgba(255,255,255,0.05); color: var(--text-secondary);
     }
     .category-pill.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+
+    /* ────────────────────────────────────────────────
+       FEATURED SECTION STYLES
+    ──────────────────────────────────────────────── */
+    .featured-section {
+      padding: 48px 24px 32px;
+      background: linear-gradient(135deg, rgba(66,133,244,0.08), rgba(217,101,112,0.06));
+      border-radius: 20px;
+      margin: 0 24px 40px;
+    }
+    .featured-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent-color);
+    }
+    .featured-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 28px;
+    }
+    .business-card.featured {
+      border: 2px solid var(--accent-color);
+      box-shadow: 0 10px 32px rgba(66,133,244,0.22);
+      background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,255,255,0.75));
+      transform: scale(1.015);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .business-card.featured:hover {
+      transform: scale(1.05) translateY(-8px);
+      box-shadow: 0 20px 48px rgba(66,133,244,0.35);
+    }
+    .featured-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: var(--accent-color);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+      z-index: 2;
+    }
+    @media (max-width: 768px) {
+      .featured-section {
+        margin: 0 16px 32px;
+        padding: 40px 16px 24px;
+      }
+      .featured-header { font-size: 1.6rem; }
+      .featured-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .business-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 24px; padding: 24px; max-width: 1200px; margin: 0 auto;
@@ -336,7 +395,6 @@
 </head>
 <body>
   <div class="overlay" id="overlay" onclick="closeOverlays()"></div>
-
   <aside class="sidebar" id="sidebar">
     <div class="nav-list">
       <div class="nav-item active" id="nav-dir" onclick="switchView('all')">
@@ -353,7 +411,6 @@
       </div>
     </div>
   </aside>
-
   <main class="main">
     <div class="top-bar">
       <div style="display:flex; align-items:center; gap:12px;">
@@ -363,7 +420,6 @@
         <div class="user-avatar" id="userAvatar" style="background-image: url('https://ui-avatars.com/api/?name=Guest')"></div>
       </div>
     </div>
-
     <div class="content-scroll">
       <div class="hero-section">
         <h1 class="hero-title" id="pageTitle">Find Local Businesses</h1>
@@ -381,6 +437,15 @@
         <div class="category-pill" onclick="filterCategory('Service', this)">Service</div>
         <div class="category-pill" onclick="filterCategory('Tech', this)">Tech</div>
       </div>
+
+      <!-- Featured Businesses Section -->
+      <section class="featured-section" id="featuredSection" style="display:none;">
+        <div class="featured-header">
+          <span class="material-symbols-rounded" style="font-size:36px;">star</span>
+          Featured Businesses
+        </div>
+        <div class="featured-grid" id="featuredGrid"></div>
+      </section>
 
       <div class="business-grid" id="businessGrid"></div>
 
@@ -564,6 +629,8 @@
 
     const els = {
       grid: document.getElementById('businessGrid'),
+      featuredGrid: document.getElementById('featuredGrid'),
+      featuredSection: document.getElementById('featuredSection'),
       search: document.getElementById('searchInput'),
       sidebar: document.getElementById('sidebar'),
       overlay: document.getElementById('overlay'),
@@ -581,21 +648,11 @@
     function setTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('theme', theme);
-      document.getElementById('themeSwitch').checked = (theme === 'dark');
-    }
-
-    function toggleTheme() {
-      const current = document.documentElement.getAttribute('data-theme') || 'light';
-      setTheme(current === 'dark' ? 'light' : 'dark');
     }
 
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) setTheme(savedTheme);
     else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme('dark');
-
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-      if (!localStorage.getItem('theme')) setTheme(e.matches ? 'dark' : 'light');
-    });
 
     // ────────────────────────────────────────────────
     // PRICING VISIBILITY
@@ -613,16 +670,12 @@
       db.ref('business_ratings').on('value', snapshot => {
         globalRatings = snapshot.val() || {};
         filterBusinesses();
-        if (currentActiveBizId && globalRatings[currentActiveBizId]) {
-          const d = getAverageRating(currentActiveBizId);
-          document.getElementById('modalRatingText').innerText = d.avg;
-          document.getElementById('modalReviewCount').innerText = `(${d.count} reviews)`;
-        }
       });
 
       db.ref('businesses').on('value', snapshot => {
         const data = snapshot.val();
         allBusinesses = data ? Object.keys(data).map(k => ({ id: k, ...data[k] })) : [];
+        renderFeatured();
         filterBusinesses();
       });
     }
@@ -631,6 +684,33 @@
       db.ref(`users_saved/${uid}`).on('value', snapshot => {
         savedIds = snapshot.val() ? Object.keys(snapshot.val()) : [];
         filterBusinesses();
+      });
+    }
+
+    // ────────────────────────────────────────────────
+    // FEATURED RENDERING
+    // ────────────────────────────────────────────────
+    function renderFeatured() {
+      const featured = allBusinesses.filter(b => b.featured === true);
+
+      if (featured.length === 0 || currentView !== 'all') {
+        els.featuredSection.style.display = 'none';
+        return;
+      }
+
+      els.featuredSection.style.display = 'block';
+      els.featuredGrid.innerHTML = '';
+
+      featured.forEach(biz => {
+        const card = createCard(biz);
+        card.classList.add('featured');
+
+        const badge = document.createElement('span');
+        badge.className = 'featured-badge';
+        badge.textContent = 'Featured';
+        card.querySelector('.card-img').appendChild(badge);
+
+        els.featuredGrid.appendChild(card);
       });
     }
 
@@ -655,6 +735,7 @@
         document.getElementById('categoryContainer').style.display = "flex";
       }
 
+      renderFeatured();
       filterBusinesses();
       updatePricingVisibility();
       closeOverlays();
@@ -662,19 +743,20 @@
 
     function filterBusinesses() {
       const q = els.search.value.toLowerCase();
+
       if (currentView === 'categories') {
         renderByCategory(q);
-        updatePricingVisibility();
         return;
       }
+
       const filtered = allBusinesses.filter(b => {
         const r = getAverageRating(b.id).avg.toString();
-        return (b.name.toLowerCase().includes(q) || b.address.toLowerCase().includes(q) || r.includes(q)) &&
+        return (b.name?.toLowerCase().includes(q) || b.address?.toLowerCase().includes(q) || r.includes(q)) &&
                (currentCategory === 'All' || b.cat === currentCategory) &&
                (currentView === 'all' || savedIds.includes(b.id));
       });
+
       renderCards(filtered);
-      updatePricingVisibility();
     }
 
     function getAverageRating(id) {
@@ -688,7 +770,7 @@
       els.grid.innerHTML = '';
       [...new Set(allBusinesses.map(b => b.cat))].sort().forEach(cat => {
         const items = allBusinesses.filter(b => b.cat === cat &&
-          (b.name.toLowerCase().includes(query) || b.address.toLowerCase().includes(query)));
+          (b.name?.toLowerCase().includes(query) || b.address?.toLowerCase().includes(query)));
         if (items.length) {
           const h = document.createElement('div');
           h.className = 'category-header';
@@ -706,14 +788,14 @@
       card.className = 'business-card';
       card.onclick = () => openDetailModal(biz);
       card.innerHTML = `
-        <div class="card-img" style="background-image:url('${biz.img}')">
-          <span class="card-category">${biz.cat}</span>
+        <div class="card-img" style="background-image:url('${biz.img || ''}')">
+          <span class="card-category">${biz.cat || 'Unknown'}</span>
           ${fav ? '<span class="material-symbols-rounded" style="position:absolute;top:12px;right:12px;color:#D96570;background:white;border-radius:50%;padding:4px;font-size:18px;">favorite</span>' : ''}
         </div>
         <div class="card-body">
-          <div class="biz-name">${biz.name}</div>
+          <div class="biz-name">${biz.name || 'Unnamed Business'}</div>
           <div class="biz-rating"><span class="material-symbols-rounded" style="font-size:16px;">star</span> ${rt.avg} (${rt.count})</div>
-          <div class="biz-info"><span class="material-symbols-rounded" style="font-size:16px">location_on</span>${biz.address}</div>
+          <div class="biz-info"><span class="material-symbols-rounded" style="font-size:16px">location_on</span>${biz.address || 'No address'}</div>
         </div>`;
       return card;
     }
@@ -729,18 +811,19 @@
     function openDetailModal(biz) {
       currentActiveBizId = biz.id;
       const rt = getAverageRating(biz.id);
-      document.getElementById('modalTitle').textContent = biz.name;
-      document.getElementById('modalCat').textContent = biz.cat;
-      document.getElementById('modalAddress').textContent = biz.address;
-      document.getElementById('modalPhone').textContent = biz.phone;
-      document.getElementById('modalImg').style.backgroundImage = `url('${biz.img}')`;
+      document.getElementById('modalTitle').textContent = biz.name || 'Unnamed';
+      document.getElementById('modalCat').textContent = biz.cat || 'Unknown';
+      document.getElementById('modalAddress').textContent = biz.address || 'No address';
+      document.getElementById('modalPhone').textContent = biz.phone || 'No phone';
+      document.getElementById('modalImg').style.backgroundImage = `url('${biz.img || ''}')`;
       document.getElementById('modalRatingText').textContent = rt.avg;
       document.getElementById('modalReviewCount').textContent = `(${rt.count} reviews)`;
 
-      const cleanPhone = biz.phone.replace(/\s+/g, '');
-      document.getElementById('modalCallBtn').href = `tel:${cleanPhone}`;
+      const cleanPhone = (biz.phone || '').replace(/\s+/g, '');
+      document.getElementById('modalCallBtn').href = cleanPhone ? `tel:${cleanPhone}` : '#';
+
       const waText = encodeURIComponent(`Hello ${biz.name}, I found you on All Business and would like to inquire about your services.`);
-      document.getElementById('modalWhatsappBtn').href = `https://wa.me/${cleanPhone.replace('+','')}?text=${waText}`;
+      document.getElementById('modalWhatsappBtn').href = cleanPhone ? `https://wa.me/${cleanPhone.replace('+','')}?text=${waText}` : '#';
 
       const saveBtn = document.getElementById('saveBizBtn');
       const isSaved = savedIds.includes(biz.id);
@@ -752,7 +835,8 @@
       newBtn.onclick = () => {
         if (!auth.currentUser) return alert("Please Sign In first!");
         const ref = db.ref(`users_saved/${auth.currentUser.uid}/${biz.id}`);
-        isSaved ? ref.remove().then(closeOverlays) : ref.set(true).then(closeOverlays);
+        if (isSaved) ref.remove();
+        else ref.set(true);
       };
 
       const stars = document.querySelectorAll('#starInput span');
@@ -798,12 +882,13 @@
 
     auth.onAuthStateChanged(user => {
       if (user) {
-        els.greeting.textContent = `Hello, ${user.displayName.split(' ')[0]}`;
-        els.avatar.style.backgroundImage = `url(${user.photoURL})`;
-        document.getElementById('authBtnSidebar')?.querySelector('.nav-label')?.setAttribute('textContent', 'Sign Out');
+        els.greeting.textContent = `Hello, ${user.displayName?.split(' ')[0] || 'User'}`;
+        els.avatar.style.backgroundImage = `url(${user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || 'User')})`;
         initSavedListener(user.uid);
       } else {
         savedIds = [];
+        els.greeting.textContent = "Hello, Guest";
+        els.avatar.style.backgroundImage = "url('https://ui-avatars.com/api/?name=Guest')";
         filterBusinesses();
       }
     });
@@ -829,10 +914,11 @@
         form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-          method: 'POST', body: form
+          method: 'POST',
+          body: form
         });
-        if (!res.ok) throw new Error((await res.json()).error?.message || "Upload failed");
 
+        if (!res.ok) throw new Error((await res.json()).error?.message || "Upload failed");
         const { secure_url: url } = await res.json();
 
         await db.ref('businesses').push({
@@ -841,10 +927,11 @@
           address: document.getElementById('bizAddress').value.trim(),
           phone: document.getElementById('bizPhone').value.trim(),
           img: url,
+          featured: false,           // default – change to true for testing or via admin
           createdAt: firebase.database.ServerValue.TIMESTAMP
         });
 
-        alert("Business registered!");
+        alert("Business registered successfully!");
         document.getElementById('listingForm').reset();
         document.getElementById('imagePreview').style.display = 'none';
         closeOverlays();
@@ -865,6 +952,7 @@
       else filterBusinesses();
     }
 
+    // Image preview
     document.getElementById('bizImg').addEventListener('change', e => {
       const f = e.target.files[0];
       if (!f) return;
@@ -876,7 +964,10 @@
       r.readAsDataURL(f);
     });
 
+    // Search listener
     els.search.addEventListener('input', filterBusinesses);
+
+    // Initialize
     initDatabaseListener();
     updatePricingVisibility();
   </script>
