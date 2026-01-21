@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Rounded" rel="stylesheet"/>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -196,6 +198,9 @@
     }
     .category-pill.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
 
+    /* ────────────────────────────────────────────────
+       FEATURED SECTION STYLES
+    ──────────────────────────────────────────────── */
     .featured-section {
       padding: 48px 24px 32px;
       background: linear-gradient(135deg, rgba(66,133,244,0.08), rgba(217,101,112,0.06));
@@ -401,13 +406,8 @@
       user-select: none;
       transition: background 0.2s;
     }
-    .theme-toggle:hover {
-      background: rgba(255,255,255,0.14);
-    }
-    .theme-toggle .material-symbols-rounded {
-      font-size: 20px;
-      color: var(--text-secondary);
-    }
+    .theme-toggle:hover { background: rgba(255,255,255,0.14); }
+    .theme-toggle .material-symbols-rounded { font-size: 20px; color: var(--text-secondary); }
     .switch {
       position: relative; display: inline-block; width: 44px; height: 24px;
     }
@@ -464,8 +464,29 @@
       color: var(--text-muted);
       font-size: 1.1rem;
     }
+    .chart-container {
+      background: var(--bg-surface);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 24px 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      height: 320px;
+      position: relative;
+    }
+    .charts-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 24px;
+      margin-top: 32px;
+    }
     @media (max-width: 768px) {
       .dashboard-section { padding: 32px 16px; }
+      .charts-row { grid-template-columns: 1fr; }
+    }
+    /* Hide search bar + hero on dashboard */
+    body[data-view="dashboard"] .search-wrapper,
+    body[data-view="dashboard"] .hero-section {
+      display: none !important;
     }
   </style>
 </head>
@@ -540,7 +561,31 @@
       <section class="dashboard-section" id="dashboardSection" style="display:none;">
         <h2 class="dashboard-header">My Business Dashboard</h2>
         <p id="dashboardSubtitle" style="color:var(--text-secondary); margin-bottom:32px;">Track performance and reach of your listings</p>
-        <div id="dashboardContent"></div>
+
+        <div id="dashboardContent">
+          <!-- Stats cards -->
+          <div class="stats-grid" id="statsGrid"></div>
+
+          <!-- Charts -->
+          <div class="charts-row">
+            <div class="chart-container">
+              <canvas id="viewsChart"></canvas>
+            </div>
+            <div class="chart-container">
+              <canvas id="callsChart"></canvas>
+            </div>
+            <div class="chart-container">
+              <canvas id="sourcesChart"></canvas>
+            </div>
+            <div class="chart-container">
+              <canvas id="performanceChart"></canvas>
+            </div>
+          </div>
+
+          <div style="margin-top:40px; text-align:center; color:var(--text-muted);">
+            <p>More detailed analytics (real-time updates, visitor maps, heatmaps) coming soon.</p>
+          </div>
+        </div>
       </section>
 
       <section class="pricing-section" id="pricingSection" style="display: none;">
@@ -739,8 +784,11 @@
       dashboardSection: document.getElementById('dashboardSection'),
       dashboardContent: document.getElementById('dashboardContent'),
       dashboardSubtitle: document.getElementById('dashboardSubtitle'),
-      navDashboard: document.getElementById('nav-dashboard')
+      navDashboard: document.getElementById('nav-dashboard'),
+      statsGrid: document.getElementById('statsGrid')
     };
+
+    let viewsChart, callsChart, sourcesChart, performanceChart;
 
     // ────────────────────────────────────────────────
     // THEME
@@ -749,6 +797,7 @@
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('theme', theme);
       els.themeSwitch.checked = (theme === 'dark');
+      if (currentView === 'dashboard') renderDashboardCharts();
     }
 
     function toggleTheme() {
@@ -765,7 +814,7 @@
     });
 
     // ────────────────────────────────────────────────
-    // AUTH UI & DASHBOARD REDIRECT
+    // AUTH & DASHBOARD REDIRECT
     // ────────────────────────────────────────────────
     function updateAuthUI(user) {
       if (user) {
@@ -774,8 +823,6 @@
         els.authBtn.textContent = 'Sign Out';
         els.authBtn.classList.add('signout');
         if (els.navDashboard) els.navDashboard.style.display = 'flex';
-
-        // Redirect to dashboard after sign in
         switchView('dashboard');
       } else {
         els.greeting.textContent = 'Hello, Guest';
@@ -783,10 +830,7 @@
         els.authBtn.textContent = 'Sign In';
         els.authBtn.classList.remove('signout');
         if (els.navDashboard) els.navDashboard.style.display = 'none';
-
-        if (currentView === 'dashboard') {
-          switchView('all');
-        }
+        if (currentView === 'dashboard') switchView('all');
         savedIds = [];
         filterBusinesses();
       }
@@ -802,13 +846,11 @@
 
     auth.onAuthStateChanged(user => {
       updateAuthUI(user);
-      if (user) {
-        initSavedListener(user.uid);
-      }
+      if (user) initSavedListener(user.uid);
     });
 
     // ────────────────────────────────────────────────
-    // DASHBOARD RENDER (placeholder)
+    // DASHBOARD RENDER + CHARTS
     // ────────────────────────────────────────────────
     function renderDashboard() {
       if (!auth.currentUser) {
@@ -816,7 +858,9 @@
         return;
       }
 
-      // Placeholder – replace with real Firebase data later
+      els.dashboardSubtitle.textContent = `Welcome back, ${auth.currentUser.displayName?.split(' ')[0] || 'User'}`;
+
+      // Stats cards
       const placeholderStats = [
         { label: "Profile Views", value: "1,248", change: "+18%" },
         { label: "Phone Calls", value: "87", change: "+12%" },
@@ -824,9 +868,9 @@
         { label: "Saved by Users", value: "19", change: "+5%" }
       ];
 
-      let html = '<div class="stats-grid">';
+      let statsHtml = '';
       placeholderStats.forEach(stat => {
-        html += `
+        statsHtml += `
           <div class="stat-card">
             <div class="stat-number">${stat.value}</div>
             <div class="stat-label">${stat.label}</div>
@@ -834,17 +878,112 @@
           </div>
         `;
       });
-      html += '</div>';
+      els.statsGrid.innerHTML = statsHtml;
 
-      html += `
-        <div style="margin-top:40px; text-align:center; color:var(--text-muted);">
-          <p>More detailed analytics (maps, charts, visitor locations) coming soon.</p>
-          <p style="margin-top:12px;">Currently tracking basic profile interactions.</p>
-        </div>
-      `;
+      renderDashboardCharts();
+    }
 
-      els.dashboardContent.innerHTML = html;
-      els.dashboardSubtitle.textContent = `Welcome back, ${auth.currentUser.displayName?.split(' ')[0] || 'User'}`;
+    function renderDashboardCharts() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const textColor = isDark ? '#e0e0e0' : '#444746';
+      const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim();
+
+      // Destroy previous instances if they exist
+      [viewsChart, callsChart, sourcesChart, performanceChart].forEach(chart => chart && chart.destroy());
+
+      // Line - Views over time
+      viewsChart = new Chart(document.getElementById('viewsChart'), {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          datasets: [{
+            label: 'Profile Views',
+            data: [650, 820, 1100, 980, 1450, 1248],
+            borderColor: accent,
+            backgroundColor: accent + '33',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor } }
+          },
+          plugins: { legend: { labels: { color: textColor } } }
+        }
+      });
+
+      // Bar - Calls & Inquiries
+      callsChart = new Chart(document.getElementById('callsChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          datasets: [
+            { label: 'Phone Calls', data: [12, 19, 8, 15, 22, 14, 9], backgroundColor: accent },
+            { label: 'WhatsApp', data: [7, 11, 5, 9, 13, 8, 6], backgroundColor: '#25D366' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { display: false }, ticks: { color: textColor } }
+          },
+          plugins: { legend: { labels: { color: textColor } } }
+        }
+      });
+
+      // Pie - Traffic Sources
+      sourcesChart = new Chart(document.getElementById('sourcesChart'), {
+        type: 'pie',
+        data: {
+          labels: ['Direct', 'Search', 'Social', 'Referrals'],
+          datasets: [{
+            data: [42, 28, 18, 12],
+            backgroundColor: [accent, '#FF6384', '#36A2EB', '#FFCE56']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: textColor } }
+          }
+        }
+      });
+
+      // Radar - Performance Metrics
+      performanceChart = new Chart(document.getElementById('performanceChart'), {
+        type: 'radar',
+        data: {
+          labels: ['Engagement', 'Reach', 'Conversions', 'Retention', 'Growth'],
+          datasets: [{
+            label: 'This Month',
+            data: [85, 70, 65, 90, 78],
+            backgroundColor: accent + '40',
+            borderColor: accent,
+            pointBackgroundColor: accent
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              angleLines: { color: gridColor },
+              grid: { color: gridColor },
+              pointLabels: { color: textColor },
+              ticks: { color: textColor, backdropColor: 'transparent' }
+            }
+          },
+          plugins: { legend: { labels: { color: textColor } } }
+        }
+      });
     }
 
     // ────────────────────────────────────────────────
@@ -853,8 +992,8 @@
     function switchView(view) {
       currentView = view;
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.body.setAttribute('data-view', view);
 
-      // Reset visibility
       els.grid.style.display = 'none';
       els.featuredSection.style.display = 'none';
       els.dashboardSection.style.display = 'none';
@@ -892,19 +1031,16 @@
     }
 
     // ────────────────────────────────────────────────
-    // FEATURED RENDERING
+    // FEATURED & BUSINESS RENDERING (unchanged)
     // ────────────────────────────────────────────────
     function renderFeatured() {
       const featured = allBusinesses.filter(b => b.featured === true);
-
       if (featured.length === 0 || currentView !== 'all') {
         els.featuredSection.style.display = 'none';
         return;
       }
-
       els.featuredSection.style.display = 'block';
       els.featuredGrid.innerHTML = '';
-
       featured.forEach(biz => {
         const card = createCard(biz);
         card.classList.add('featured');
@@ -916,9 +1052,6 @@
       });
     }
 
-    // ────────────────────────────────────────────────
-    // FILTER & RENDER FUNCTIONS (unchanged from previous version)
-    // ────────────────────────────────────────────────
     function filterBusinesses() {
       const q = els.search.value.toLowerCase();
       if (currentView === 'categories') {
@@ -993,18 +1126,14 @@
       document.getElementById('modalImg').style.backgroundImage = `url('${biz.img || ''}')`;
       document.getElementById('modalRatingText').textContent = rt.avg;
       document.getElementById('modalReviewCount').textContent = `(${rt.count} reviews)`;
-
       const cleanPhone = (biz.phone || '').replace(/\s+/g, '');
       document.getElementById('modalCallBtn').href = cleanPhone ? `tel:${cleanPhone}` : '#';
-
       const waText = encodeURIComponent(`Hello ${biz.name}, I found you on All Business and would like to inquire about your services.`);
       document.getElementById('modalWhatsappBtn').href = cleanPhone ? `https://wa.me/${cleanPhone.replace('+','')}?text=${waText}` : '#';
-
       const saveBtn = document.getElementById('saveBizBtn');
       const isSaved = savedIds.includes(biz.id);
       saveBtn.textContent = isSaved ? "Remove" : "Save";
       saveBtn.style.color = isSaved ? "#D96570" : "inherit";
-
       const newBtn = saveBtn.cloneNode(true);
       saveBtn.replaceWith(newBtn);
       newBtn.onclick = () => {
@@ -1013,12 +1142,10 @@
         if (isSaved) ref.remove();
         else ref.set(true);
       };
-
       const stars = document.querySelectorAll('#starInput span');
       const setStars = val => stars.forEach(s => s.classList.toggle('active', parseInt(s.dataset.value) <= val));
       const userRt = auth.currentUser && globalRatings[biz.id]?.[auth.currentUser.uid] || 0;
       setStars(userRt);
-
       stars.forEach(s => {
         s.onclick = () => {
           if (!auth.currentUser) return alert("Please Sign In to rate!");
@@ -1026,7 +1153,6 @@
           db.ref(`business_ratings/${biz.id}/${auth.currentUser.uid}`).set(v).then(() => setStars(v));
         };
       });
-
       els.detailModal.classList.add('active');
       els.overlay.classList.add('active');
     }
@@ -1049,26 +1175,21 @@
       const file = document.getElementById('bizImg').files[0];
       if (!file) return alert("Please select an image.");
       if (file.size > 5*1024*1024) return alert("Image too large (max 5MB).");
-
       const btn = els.submitBtn;
       const txt = btn.textContent;
       btn.textContent = "Uploading...";
       btn.classList.add('loading');
       btn.disabled = true;
-
       try {
         const form = new FormData();
         form.append('file', file);
         form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
           method: 'POST',
           body: form
         });
-
         if (!res.ok) throw new Error((await res.json()).error?.message || "Upload failed");
         const { secure_url: url } = await res.json();
-
         await db.ref('businesses').push({
           name: document.getElementById('bizName').value.trim(),
           cat: document.getElementById('bizCat').value,
@@ -1078,7 +1199,6 @@
           featured: false,
           createdAt: firebase.database.ServerValue.TIMESTAMP
         });
-
         alert("Business registered successfully!");
         document.getElementById('listingForm').reset();
         document.getElementById('imagePreview').style.display = 'none';
@@ -1118,7 +1238,6 @@
         globalRatings = snapshot.val() || {};
         filterBusinesses();
       });
-
       db.ref('businesses').on('value', snapshot => {
         const data = snapshot.val();
         allBusinesses = data ? Object.keys(data).map(k => ({ id: k, ...data[k] })) : [];
