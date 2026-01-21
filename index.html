@@ -205,7 +205,6 @@
       background: rgba(255,255,255,0.05); color: var(--text-secondary);
     }
     .category-pill.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
-
     .featured-section {
       padding: 48px 24px 32px;
       background: linear-gradient(135deg, rgba(66,133,244,0.08), rgba(217,101,112,0.06));
@@ -260,7 +259,6 @@
         grid-template-columns: 1fr;
       }
     }
-
     .business-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 24px; padding: 24px; max-width: 1200px; margin: 0 auto;
@@ -427,7 +425,6 @@
     }
     input:checked + .slider { background-color: var(--accent-color); }
     input:checked + .slider:before { transform: translateX(20px); }
-
     /* Dashboard styles */
     .dashboard-section {
       padding: 40px 24px;
@@ -552,7 +549,6 @@
         <div class="category-pill" onclick="filterCategory('Service', this)">Service</div>
         <div class="category-pill" onclick="filterCategory('Tech', this)">Tech</div>
       </div>
-
       <section class="featured-section" id="featuredSection" style="display:none;">
         <div class="featured-header">
           <span class="material-symbols-rounded" style="font-size:36px;">star</span>
@@ -560,13 +556,10 @@
         </div>
         <div class="featured-grid" id="featuredGrid"></div>
       </section>
-
       <div class="business-grid" id="businessGrid"></div>
-
       <section class="dashboard-section" id="dashboardSection" style="display:none;">
         <h2 class="dashboard-header">My Business Dashboard</h2>
         <p id="dashboardSubtitle" style="color:var(--text-secondary); margin-bottom:32px;">Track performance and reach of your listings</p>
-
         <div id="dashboardContent">
           <div class="stats-grid" id="statsGrid"></div>
           <div class="charts-row">
@@ -588,7 +581,6 @@
           </div>
         </div>
       </section>
-
       <section class="pricing-section" id="pricingSection" style="display: none;">
         <h2 style="font-size: 1.8rem; font-weight: 700;">Promote Your Business</h2>
         <p style="color: var(--text-secondary); margin-top: 8px;">Reach more customers with All Business Marketing Tools.</p>
@@ -626,7 +618,6 @@
           </div>
         </div>
       </section>
-
       <footer class="footer">
         <div class="footer-grid">
           <div class="footer-brand">
@@ -661,7 +652,6 @@
       </footer>
     </div>
   </main>
-
   <!-- List Business Modal -->
   <div class="modal-sheet" id="listModal">
     <div class="modal-content">
@@ -703,7 +693,6 @@
       </form>
     </div>
   </div>
-
   <!-- Business Detail Modal -->
   <div class="modal-sheet" id="detailModal">
     <div class="modal-img-header" id="modalImg">
@@ -754,19 +743,16 @@
     };
     const CLOUDINARY_CLOUD_NAME = 'dxp01qjvb';
     const CLOUDINARY_UPLOAD_PRESET = 'allbusiness';
-
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
     const provider = new firebase.auth.GoogleAuthProvider();
-
     let allBusinesses = [];
     let savedIds = [];
     let globalRatings = {};
     let currentCategory = 'All';
     let currentView = 'all';
     let currentActiveBizId = null;
-
     const els = {
       grid: document.getElementById('businessGrid'),
       featuredGrid: document.getElementById('featuredGrid'),
@@ -788,9 +774,7 @@
       navDashboard: document.getElementById('nav-dashboard'),
       statsGrid: document.getElementById('statsGrid')
     };
-
     let viewsChart, callsChart, sourcesChart, performanceChart;
-
     // ────────────────────────────────────────────────
     // THEME
     // ────────────────────────────────────────────────
@@ -800,20 +784,16 @@
       els.themeSwitch.checked = (theme === 'dark');
       if (currentView === 'dashboard') renderDashboardCharts();
     }
-
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme') || 'light';
       setTheme(current === 'dark' ? 'light' : 'dark');
     }
-
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) setTheme(savedTheme);
     else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme('dark');
-
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
       if (!localStorage.getItem('theme')) setTheme(e.matches ? 'dark' : 'light');
     });
-
     // ────────────────────────────────────────────────
     // AUTH UI & DASHBOARD REDIRECT
     // ────────────────────────────────────────────────
@@ -836,7 +816,6 @@
         filterBusinesses();
       }
     }
-
     function handleAuth() {
       if (auth.currentUser) {
         auth.signOut().catch(console.error);
@@ -844,12 +823,10 @@
         auth.signInWithPopup(provider).catch(console.error);
       }
     }
-
     auth.onAuthStateChanged(user => {
       updateAuthUI(user);
       if (user) initSavedListener(user.uid);
     });
-
     // ────────────────────────────────────────────────
     // DASHBOARD RENDER + CHARTS
     // ────────────────────────────────────────────────
@@ -858,16 +835,13 @@
         els.dashboardContent.innerHTML = '<div class="dashboard-empty">Please sign in to view your dashboard.</div>';
         return;
       }
-
       els.dashboardSubtitle.textContent = `Welcome back, ${auth.currentUser.displayName?.split(' ')[0] || 'User'}`;
-
       const placeholderStats = [
         { label: "Profile Views", value: "1,248", change: "+18%" },
         { label: "Phone Calls", value: "87", change: "+12%" },
         { label: "WhatsApp Inquiries", value: "42", change: "+31%" },
         { label: "Saved by Users", value: "19", change: "+5%" }
       ];
-
       let statsHtml = '';
       placeholderStats.forEach(stat => {
         statsHtml += `
@@ -879,18 +853,14 @@
         `;
       });
       els.statsGrid.innerHTML = statsHtml;
-
       renderDashboardCharts();
     }
-
     function renderDashboardCharts() {
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       const textColor = isDark ? '#e0e0e0' : '#444746';
       const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim();
-
       [viewsChart, callsChart, sourcesChart, performanceChart].forEach(chart => chart && chart.destroy());
-
       viewsChart = new Chart(document.getElementById('viewsChart'), {
         type: 'line',
         data: {
@@ -914,7 +884,6 @@
           plugins: { legend: { labels: { color: textColor } } }
         }
       });
-
       callsChart = new Chart(document.getElementById('callsChart'), {
         type: 'bar',
         data: {
@@ -934,7 +903,6 @@
           plugins: { legend: { labels: { color: textColor } } }
         }
       });
-
       sourcesChart = new Chart(document.getElementById('sourcesChart'), {
         type: 'pie',
         data: {
@@ -952,7 +920,6 @@
           }
         }
       });
-
       performanceChart = new Chart(document.getElementById('performanceChart'), {
         type: 'radar',
         data: {
@@ -980,7 +947,6 @@
         }
       });
     }
-
     // ────────────────────────────────────────────────
     // VIEW SWITCHING
     // ────────────────────────────────────────────────
@@ -988,13 +954,11 @@
       currentView = view;
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       document.body.setAttribute('data-view', view);
-
       els.grid.style.display = 'none';
       els.featuredSection.style.display = 'none';
       els.dashboardSection.style.display = 'none';
       document.getElementById('categoryContainer').style.display = 'none';
       els.pricingSection.style.display = 'none';
-
       if (view === 'all') {
         document.getElementById('nav-dir').classList.add('active');
         document.getElementById('pageTitle').innerText = "Find Local Businesses";
@@ -1020,11 +984,9 @@
         els.dashboardSection.style.display = 'block';
         renderDashboard();
       }
-
       updatePricingVisibility();
       closeOverlays();
     }
-
     // ────────────────────────────────────────────────
     // FEATURED RENDERING
     // ────────────────────────────────────────────────
@@ -1046,7 +1008,6 @@
         els.featuredGrid.appendChild(card);
       });
     }
-
     // ────────────────────────────────────────────────
     // FILTER & RENDER FUNCTIONS
     // ────────────────────────────────────────────────
@@ -1064,14 +1025,12 @@
       });
       renderCards(filtered);
     }
-
     function getAverageRating(id) {
       const ratings = globalRatings[id];
       if (!ratings) return { avg: "0.0", count: 0 };
       const vals = Object.values(ratings);
       return { avg: (vals.reduce((a,b)=>a+b,0) / vals.length).toFixed(1), count: vals.length };
     }
-
     function renderByCategory(query) {
       els.grid.innerHTML = '';
       [...new Set(allBusinesses.map(b => b.cat))].sort().forEach(cat => {
@@ -1086,7 +1045,6 @@
         }
       });
     }
-
     function createCard(biz) {
       const fav = savedIds.includes(biz.id);
       const rt = getAverageRating(biz.id);
@@ -1105,12 +1063,10 @@
         </div>`;
       return card;
     }
-
     function renderCards(data) {
       els.grid.innerHTML = data.length ? '' : '<p style="grid-column:1/-1;text-align:center;padding:40px;color:#888;">No results found.</p>';
       data.forEach(b => els.grid.appendChild(createCard(b)));
     }
-
     // ────────────────────────────────────────────────
     // MODALS & OTHER FUNCTIONS
     // ────────────────────────────────────────────────
@@ -1154,12 +1110,10 @@
       els.detailModal.classList.add('active');
       els.overlay.classList.add('active');
     }
-
     function openListModal() {
       els.listModal.classList.add('active');
       els.overlay.classList.add('active');
     }
-
     function closeOverlays() {
       currentActiveBizId = null;
       els.sidebar.classList.remove('open');
@@ -1167,7 +1121,6 @@
       els.listModal.classList.remove('active');
       els.overlay.classList.remove('active');
     }
-
     async function registerBusiness(e) {
       e.preventDefault();
       const file = document.getElementById('bizImg').files[0];
@@ -1209,7 +1162,6 @@
         btn.disabled = false;
       }
     }
-
     function filterCategory(cat, el) {
       currentCategory = cat;
       document.querySelectorAll('.category-pill').forEach(e => e.classList.remove('active'));
@@ -1217,7 +1169,6 @@
       if (currentView === 'categories') switchView('all');
       else filterBusinesses();
     }
-
     document.getElementById('bizImg').addEventListener('change', e => {
       const f = e.target.files[0];
       if (!f) return;
@@ -1228,9 +1179,7 @@
       };
       r.readAsDataURL(f);
     });
-
     els.search.addEventListener('input', filterBusinesses);
-
     function initDatabaseListener() {
       db.ref('business_ratings').on('value', snapshot => {
         globalRatings = snapshot.val() || {};
@@ -1243,20 +1192,17 @@
         filterBusinesses();
       });
     }
-
     function initSavedListener(uid) {
       db.ref(`users_saved/${uid}`).on('value', snapshot => {
         savedIds = snapshot.val() ? Object.keys(snapshot.val()) : [];
         filterBusinesses();
       });
     }
-
     function updatePricingVisibility() {
       if (els.pricingSection) {
         els.pricingSection.style.display = (currentView === 'all') ? 'block' : 'none';
       }
     }
-
     initDatabaseListener();
     updatePricingVisibility();
   </script>
